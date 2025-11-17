@@ -24,7 +24,7 @@ def psi_to_pa(psi):
     return psi * 6894.76
 
 def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, mass_inertial_kg,
-                          num_cylinders, energy_loss_percent, mu_friction):
+                          num_cylinders, energy_loss_percent, mu_friction, projectile_area_m2):
     """
     팝업 시스템 전체 계산
 
@@ -32,6 +32,7 @@ def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, 
     - mass_accel_kg: 가속 구간 질량 (발사체 + 구동부)
     - mass_inertial_kg: 관성 구간 질량 (발사체만)
     - mu_friction: 마찰계수
+    - projectile_area_m2: 발사체 단면적 (m²)
 
     Returns:
     - 딕셔너리: 모든 계산 결과
@@ -88,8 +89,8 @@ def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, 
     height_inertial = [0]
     velocity_inertial = [v_exit]
 
-    # 공기 저항 면적
-    A_drag = area
+    # 공기 저항 면적 (발사체 단면적 사용)
+    A_drag = projectile_area_m2
 
     while v > 0:
         # 공기 저항력
@@ -133,7 +134,7 @@ def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, 
         'acceleration': a
     }
 
-def simulate_projectile(v0, angle_deg, mass_kg):
+def simulate_projectile(v0, angle_deg, mass_kg, projectile_area_m2):
     """포물선 운동 시뮬레이션"""
     angle_rad = np.radians(angle_deg)
 
@@ -152,8 +153,8 @@ def simulate_projectile(v0, angle_deg, mass_kg):
         'vy': [vy]
     }
 
-    # 피스톤 직경 기반 공기 저항 (간단히 처리)
-    A_drag = 0.028  # m^2 (대략적)
+    # 발사체 단면적 사용
+    A_drag = projectile_area_m2
 
     # 수평 발사의 경우 최대 반복 제한
     max_iterations = 100000
@@ -256,6 +257,16 @@ mass_inertial_kg = st.sidebar.number_input(
     help="발사체만의 질량 (구동부 제외)"
 )
 
+projectile_area_m2 = st.sidebar.number_input(
+    "발사체 단면적 (m²)",
+    min_value=0.001,
+    max_value=2.0,
+    value=0.1,
+    step=0.01,
+    format="%.3f",
+    help="공기 저항을 받는 발사체의 단면적 (예: 0.4m × 0.25m = 0.1m²)"
+)
+
 st.sidebar.subheader("3️⃣ 시스템 손실")
 energy_loss = st.sidebar.slider(
     "에너지 손실 (%)",
@@ -297,7 +308,7 @@ if calculate_button:
         # 팝업 시스템 계산
         result = calculate_popup_system(
             diameter_mm, pressure_psi, stroke_mm,
-            mass_accel_kg, mass_inertial_kg, num_cylinders, energy_loss, mu_friction
+            mass_accel_kg, mass_inertial_kg, num_cylinders, energy_loss, mu_friction, projectile_area_m2
         )
 
         if result is None:
@@ -307,7 +318,8 @@ if calculate_button:
             trajectory = simulate_projectile(
                 result['exit_velocity'],
                 launch_angle,
-                mass_inertial_kg if mass_inertial_kg > 0 else mass_accel_kg
+                mass_inertial_kg if mass_inertial_kg > 0 else mass_accel_kg,
+                projectile_area_m2
             )
 
             # 결과 저장 (애니메이션용)
@@ -320,6 +332,7 @@ if calculate_button:
                 'stroke_mm': stroke_mm,
                 'mass_accel_kg': mass_accel_kg,
                 'mass_inertial_kg': mass_inertial_kg,
+                'projectile_area_m2': projectile_area_m2,
                 'energy_loss': energy_loss,
                 'mu_friction': mu_friction,
                 'launch_angle': launch_angle
@@ -459,6 +472,7 @@ if calculate_button:
                     "스트로크 (mm)": stroke_mm,
                     "가속 구간 질량 (kg)": mass_accel_kg,
                     "관성 구간 질량 (kg)": mass_inertial_kg,
+                    "발사체 단면적 (m²)": projectile_area_m2,
                     "에너지 손실 (%)": energy_loss,
                     "마찰계수 (μ)": mu_friction,
                     "발사 각도 (°)": launch_angle
@@ -572,6 +586,7 @@ else:
     ### 2️⃣ 물체 특성
     - **가속 구간 질량**: 발사체 + 구동부 전체 질량 (kg)
     - **관성 구간 질량**: 발사체만의 질량, 구동부 제외 (kg)
+    - **발사체 단면적**: 공기 저항을 받는 발사체의 단면적 (m²)
 
     ### 3️⃣ 시스템 손실
     - **에너지 손실**: 마찰, 공기 누설 등으로 인한 전체 에너지 손실률 (%)
