@@ -17,14 +17,13 @@ st.set_page_config(
 # 상수 정의
 g = 9.81  # 중력가속도 (m/s^2)
 rho_air = 1.225  # 공기 밀도 (kg/m^3)
-Cd = 1.0  # 항력계수
 
 def psi_to_pa(psi):
     """PSI를 Pascal로 변환"""
     return psi * 6894.76
 
 def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, mass_inertial_kg,
-                          num_cylinders, energy_loss_percent, mu_friction, projectile_area_m2):
+                          num_cylinders, energy_loss_percent, mu_friction, projectile_area_m2, Cd):
     """
     팝업 시스템 전체 계산
 
@@ -33,6 +32,7 @@ def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, 
     - mass_inertial_kg: 관성 구간 질량 (발사체만)
     - mu_friction: 마찰계수
     - projectile_area_m2: 발사체 단면적 (m²)
+    - Cd: 항력계수
 
     Returns:
     - 딕셔너리: 모든 계산 결과
@@ -134,7 +134,7 @@ def calculate_popup_system(diameter_mm, pressure_psi, stroke_mm, mass_accel_kg, 
         'acceleration': a
     }
 
-def simulate_projectile(v0, angle_deg, mass_kg, projectile_area_m2):
+def simulate_projectile(v0, angle_deg, mass_kg, projectile_area_m2, Cd):
     """포물선 운동 시뮬레이션"""
     angle_rad = np.radians(angle_deg)
 
@@ -286,6 +286,15 @@ mu_friction = st.sidebar.number_input(
     help="실린더 및 가이드 레일의 마찰계수"
 )
 
+Cd = st.sidebar.number_input(
+    "항력계수 (Cd)",
+    min_value=0.0,
+    max_value=2.0,
+    value=1.0,
+    step=0.05,
+    help="공기 저항 계수 (평평한 끝 원통: 0.8~1.0, 둥근 끝: 0.5, 유선형: 0.2)"
+)
+
 st.sidebar.subheader("4️⃣ 발사 각도")
 launch_angle = st.sidebar.slider(
     "발사 각도 (°)",
@@ -308,7 +317,7 @@ if calculate_button:
         # 팝업 시스템 계산
         result = calculate_popup_system(
             diameter_mm, pressure_psi, stroke_mm,
-            mass_accel_kg, mass_inertial_kg, num_cylinders, energy_loss, mu_friction, projectile_area_m2
+            mass_accel_kg, mass_inertial_kg, num_cylinders, energy_loss, mu_friction, projectile_area_m2, Cd
         )
 
         if result is None:
@@ -319,7 +328,8 @@ if calculate_button:
                 result['exit_velocity'],
                 launch_angle,
                 mass_inertial_kg if mass_inertial_kg > 0 else mass_accel_kg,
-                projectile_area_m2
+                projectile_area_m2,
+                Cd
             )
 
             # 결과 저장 (애니메이션용)
@@ -335,6 +345,7 @@ if calculate_button:
                 'projectile_area_m2': projectile_area_m2,
                 'energy_loss': energy_loss,
                 'mu_friction': mu_friction,
+                'Cd': Cd,
                 'launch_angle': launch_angle
             }
 
@@ -475,6 +486,7 @@ if calculate_button:
                     "발사체 단면적 (m²)": projectile_area_m2,
                     "에너지 손실 (%)": energy_loss,
                     "마찰계수 (μ)": mu_friction,
+                    "항력계수 (Cd)": Cd,
                     "발사 각도 (°)": launch_angle
                 })
 
@@ -558,10 +570,10 @@ if calculate_button:
                 h_총 = h_가속 + h_관성
                 ```
 
-                **상수 값:**
+                **상수 및 입력 값:**
                 - g = 9.81 m/s²
                 - ρ = 1.225 kg/m³ (공기 밀도)
-                - Cd = 1.0 (항력계수)
+                - Cd = {Cd} (항력계수)
                 - μ = {mu_friction} (마찰계수)
 
                 **질량 구분:**
@@ -591,6 +603,10 @@ else:
     ### 3️⃣ 시스템 손실
     - **에너지 손실**: 마찰, 공기 누설 등으로 인한 전체 에너지 손실률 (%)
     - **마찰계수**: 실린더 및 가이드 레일의 마찰계수 (μ)
+    - **항력계수**: 발사체의 공기 저항 계수 (Cd)
+      - 평평한 끝 원통: 0.8~1.0
+      - 둥근 끝: 0.5
+      - 유선형: 0.2
 
     ### 4️⃣ 발사 각도
     - **발사 각도**: +Y축(연직)에서 +X축 방향으로의 각도
